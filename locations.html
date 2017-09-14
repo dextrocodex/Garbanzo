@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Map</title>
+  <style>
+    html,
+    body{
+      font-family: Arial, sans-serif;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      }
+    h1{
+      text-align: center;
+      background-color: #dedede;
+      font-weight: bold;
+      font-family: Impact;
+    }
+    #map{
+      height: 100%;
+      bottom: 0px;
+      left: 362px;
+      position: absolute;
+      right: 0px;
+      }
+    .options-box{
+      background: #fff;
+      border: 2px solid #999;
+      border-radius: 3px;
+      height: 100%;
+      line-height: 35px;
+      padding: 10px 10px 30px 10px;
+      text-align: left;
+      width: 340px;
+    }
+    #show-listings,
+    #hide-listings{
+        text-align: center;
+        background-color: #dedede;
+        width: 200px;
+    }
+    #pano{
+      width: 200px;
+      height: 200px;
+    }
+    #search-within-time-text{
+      width: 84%;
+    }
+    .text{
+      font-size: 12px;
+    }
+    #toggle-drawing{
+      width: 27%;
+      position: relative;
+      margin-left: 10px;
+    }
+    #zoom-to-area-text{
+      position: relative;
+      width: 70%;
+    }
+    #zoom-to-area{
+      width: 24%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="options-box">
+      <h1>My Guwahati Locations</h1>
+      <div>
+        <input id="show-listings" type="button" value="Show listings">
+        <input id="hide-listings" type="button" value="Hide listings">
+        <hr>
+        <span class="text">Draw a shape to search within the maps for the homes!</span>
+        <input id="toggle-drawing" type="button" value="Drawing tools">
+      </div>
+      <hr>
+
+      <div>
+        <input id="zoom-to-area-text" placeholder="Enter your favourite spot." type="text">
+        <input id="zoom-to-area" type="button" value="Zoom">
+      </div>
+      <hr>
+      <div>
+        <span class="text">Within</span>
+        <select id="max-duration">
+          <option value="10">10 mins</option>
+          <option value="15">15 mins</option>
+          <option value="30">30 mins</option>
+          <option value="60">1 hour</option>
+        </select>
+        <select id="mode">
+          <option value="DRIVING">Driving</option>
+          <option value="WALKING">Walking</option>
+          <option value="BICYCLING">Bicycling</option>
+          <option value="TRANSIT">Transit</option>
+        </select>
+        <span class="text">of</span>
+        <input type="text" placeholder="Infosys Headquaters, Mysore " id="search-within-time-text">
+        <input type="button" value="Go" id="search-within-time">
+      </div>
+    </div>
+    <div id="map"></div>
+  </div>
+  <script>
+    var map;
+    //Create a new marker array
+    var markers= [];
+
+    //This global polygon tracts only one Polygon
+    var polygon= null;
+
+    function initMap(){
+      //create a style array
+       var styles= [
+        {
+          featureType: "water",
+          stylers: [
+            { color: "#19a0d8"}
+          ]
+        },{
+          featureType: "administrative",
+          elementType: "labels.text.stroke",
+          stylers: [
+            {"color": "#9c9c9c"},
+            {weight: 1}
+          ]
+        },{
+          featureType: "administrative",
+          elementType: "labels.text",
+          stylers: [
+            {color : "#e85113"}
+          ]
+        },{
+          featureType: "road.highway",
+          elementType: "geometry.stroke",
+          stylers: [
+            {color: "#f2f2f2"},
+            {lightness: -40}
+          ]
+        },{
+          featureType: "transit.station",
+          stylers: [
+            {weight: 1},
+            { hue: "#e85113"}
+          ]
+        },{
+          featureType: "road.highway",
+          elementType: "labels.icon",
+          stylers: [
+            { visibility: "on"}
+          ]
+        }
+      ];
+
+    //Constructor creates new Map, only centre & zoom are required.
+      map= new google.maps.Map(document.getElementById('map'),{
+        center:  {lat: 26.133861, lng: 91.780662},
+        zoom: 13,
+        styles: styles,
+        mapTypeControl: false
+      });
+      //Listings of locations in an array
+      var locations= [
+        {title: 'Hatigaon', location:{lat: 26.137184, lng: 91.784439}},
+        {title: 'Beltola', location:{lat:26.1273652, lng: 91.7944392}},
+        {title: 'Down Town', location:{lat:26.1382155, lng: 91.7975575}},
+
+        {title: 'Christian Basti', location:{lat:26.1525159, lng: 91.7718406}}
+      ];
+
+      var largeInfowindow= new google.maps.InfoWindow();
+
+      //Initialize the drawing manager.
+      var drawingManager= new google.maps.drawing.DrawingManager({
+        drawingMode: google.maps.drawing.OverlayType.POLYGON,
+        drawingControl: true,
+        drawingControlOptions: {
+          position: google.maps.ControlPosition.TOP_LEFT,
+          drawingModes: [
+            google.maps.drawing.OverlayType.POLYGON]
+        }
+      });
+
+      //Style the markers a bit.
+      var defaultIcon= makeMarkerIcon('0099ff');
+      var highlightedIcon= makeMarkerIcon('FFFF24');
+
+      for(var i=0;i<locations.length;i++){
+        var position= locations[i].location;
+        var title= locations[i].title;
+
+        var marker= new google.maps.Marker({
+          position: position,
+          title: title,
+          icon: defaultIcon,
+          animation: google.maps.Animation.DROP,
+          id: i
+        });
+        // Push the marker to our array of markers.
+        markers.push(marker);
+        marker.addListener('click',function(){
+          populateInfoWindow(this, largeInfowindow);
+        });
+        marker.addListener('mouseover', function(){
+          this.setIcon(highlightedIcon);
+        });
+        marker.addListener('mouseout', function(){
+          this.setIcon(defaultIcon);
+        });
+      }
+
+      document.getElementById("show-listings").addEventListener('click', showListings);
+      document.getElementById("hide-listings").addEventListener('click', hideListings);
+      document.getElementById("toggle-drawing").addEventListener('click', function(){
+        toggleDrawing(drawingManager);
+      });
+      document.getElementById('zoom-to-area').addEventListener('click', function(){
+        zoomToArea();
+      });
+      document.getElementById('search-within-time').addEventListener('click', function(){
+        searchWithinTime();
+      });
+
+
+      //add Event Listener for polygon.
+      drawingManager.addListener('overlaycomplete', function(event){
+        if(polygon){
+          polygon.setMap(null);
+          hideListings;
+        }
+
+        //Switch drawing mode to normal.
+        drawingManager.setDrawingMode(null);
+        polygon= event.overlay;
+        polygon.setEditable(true);
+        //Searching within the polygon
+        searchWithinPolygon();
+        //Make sure the search is re-done.
+        polygon.getPath().addListener('set_at', searchWithinPolygon);
+        polygon.getPath().addListener('insert_at', searchWithinPolygon);
+      });
+    }
+
+    //This function populates infoWindow when marker is clicked.
+    function populateInfoWindow(marker,infowindow){
+      if(infowindow.marker != marker){
+        infowindow.marker= marker;
+        infowindow.setContent('<div>' + marker.title + '</div>');
+        infowindow.open(map, marker);
+
+        infowindow.addListener('closeclick', function(){
+          infowindow.setMarker(null);
+        });
+        var streetViewService= new google.maps.StreetViewService();
+        var radius= 50;
+
+        //In case streetview is found, form a panoramic image
+        function getStreetView(data,status){
+          if(status == google.maps.StreetViewStatus.OK){
+            var nearStreetViewLocation= data.location.latLng;
+            var heading= google.maps.geometry.spherical.computeHeading(nearStreetViewLocation, marker.position);
+            infowindow.setContent('<div>'+ marker.title + '</div><div id="pano"></div>');
+
+            var panoramaOptions= {
+              position: nearStreetViewLocation,
+              pov: {
+                heading: heading,
+                pitch: 30
+              }
+            };
+            var panorama= new google.maps.StreetViewPanorama(
+              document.getElementById('pano').panoramaOptions);
+          }else {
+            infowindow.setContent('<div>'+ marker.title + '</div>'+ '<div>No Street View Found</div>');
+          }
+        }
+        //Use streetview service to get closest image.
+        streetViewService.getPanoramaByLocation(marker.position, radius, getStreetView);
+        infowindow.open(map,marker);
+      }
+    }
+
+    //This function will loop through the markers array and display them.
+    function showListings() {
+      var bounds= new  google.maps.LatLngBounds();
+      for(var i=0; i<markers.length; i++){
+        markers[i].setMap(map);
+        bounds.extend(markers[i].position);
+      }
+      map.fitBounds(bounds);
+    }
+
+    //This function will hide the markers array.
+    function hideListings(){
+      for(var i=0; i<markers.length;i++){
+        markers[i].setMap(null);
+      }
+    }
+
+    //Function that takes in a color to create a new marker
+    function makeMarkerIcon(markerColor){
+      var markerImage = new google.maps.MarkerImage(
+        'http://chart.googleapis.com/chart?chst=d_map_spin&chld=1.15|0|'+ markerColor + '|40|_|%E2%80%A2',
+        new google.maps.Size(21,34),
+        new google.maps.Point(0,0),
+        new google.maps.Point(10,34),
+        new google.maps.Size(21,34));
+        return markerImage;
+    }
+
+    function toggleDrawing(drawingManager){
+      if(drawingManager.map){
+        drawingManager.setMap(null);
+
+        //In case the user drew anything, get rid of polygon
+        if(polygon){
+          polygon.setMap(null);
+        }
+      }else{
+        drawingManager.setMap(map);
+      }
+    }
+
+    function searchWithinPolygon(){
+      for( var i=0; i<markers.length; i++){
+        if(google.maps.geometry.poly.containsLocation(markers[i].position, polygon)){
+          markers[i].setMap(map);
+        }else{
+          markers[i].setMap(null);
+        }
+      }
+      var area= google.maps.geometry.spherical.computeArea(polygon.getPath());
+      window.alert(area+"sq mts")
+    };
+
+    //zoom to area function
+     function zoomToArea(){
+      //Initialize the geocoder.
+
+      var geocoder= new google.maps.Geocoder();
+      var address= document.getElementById('zoom-to-area-text').value;
+      if(address==''){
+        window.alert('You must enter an area or addess.');
+      }else{
+        geocoder.geocode(
+          { address: address,
+            componentRestrictions: {locality: 'Guwahati'}
+          }, function(results, status){
+              if(status== google.maps.GeocoderStatus.OK){
+                map.setCenter(results[0].geometry.location);
+                map.setZoom(17);
+                var marker= new google.maps.Marker({
+                  map: map,
+                  position: results[0].geometry.location
+                });
+              }else{
+                window.alert('We cannot find the location you specified. Try entering a different one.');
+              }
+          });
+        }
+      }
+
+      //function allows to input a desired time in minutes and travel mode and
+      //location and parse the results
+      function searchWitthinTime(){
+        var distanceMatrixService= new google.maps.DistanceMatrixService;
+        var address= document.getElementById('search-within-time-text').value;
+        if(address==''){
+          window.alert('You must put a correct address!');
+        }else{
+          hideListings();
+          //use distance matrix to create origin matrix
+          var origins=[];
+          for(var i=0;i<markers.length;i++){
+            origins[i]= markers[i].position;
+          }
+          var destination= address;
+          var mode= document.getElementById('mode').value;
+
+          distanceMatrixService.getDistanceMatrix({
+            origins: origins,
+            destinations: [destination],
+            travelMode: google.maps.TravelMode[mode],
+            unitSystem: google.maps.UnitSystem.METRIC,
+          }, function(response,status){
+            if(status!== google.maps.DistanceMatrixService.OK){
+              window.alert('Error was:'+ status);
+            }else{
+              displayMarkersWithinTime(response);
+            }
+          });
+        }
+      }
+
+      //Function will go through list of results
+
+      function displayMarkersWithinTime(response){
+        var maxDuration= document.getElementById('max-duration').value;
+        var origins= response.originAddresses;
+        var destinations= response.destinationAddresses;
+        //Parse through the results, and gett distance and duration
+        var atLeastOne= false;
+        for(var i=0; i<origins.length;i++){
+          var results= response.rows[i].elements;
+          for( var j=0; j<results.length; j++){
+            var element= results[j];
+            if(element.status=="OK"){
+              var distanceText= element.distance.text;
+              var duration= element.duration.value/60;
+              var durationText= element.duration.text;
+              if(duration<= maxDuration){
+                markers[i].setMap(map);
+                atLeastOne= true;
+
+                var infowindow= new google.maps.InfoWindow({
+                  content: durationText + 'away, '+ distanceText
+                });
+                infowindow.open(map, markers[i]);
+
+                markers[i].infowindow= infowindow;
+                google.maps.event.addListener(markers[i], 'click', function(){
+                  this.infowindow.close();
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+</script>
+
+<script async defer src= "https://maps.googleapis.com/maps/api/js?libraries=drawing,geometry&key=AIzaSyCczOgXAtKoeTQal0a_DOCWNR2ZrdXV268&v=3&callback=initMap">
+</script>
+</body>
+</html>
